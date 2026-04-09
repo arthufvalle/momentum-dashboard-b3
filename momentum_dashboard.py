@@ -675,7 +675,7 @@ def main():
                     'RSI': '{:.1f}',
                     'Força_Rel_6M': '{:.1f}%',
                     'Volatilidade': '{:.1f}%'
-                }, na_rep='N/A').applymap(highlight_score, subset=['Score']),
+                }, na_rep='N/A').map(highlight_score, subset=['Score']),
                 use_container_width=True,
                 height=400
             )
