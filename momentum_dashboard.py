@@ -681,13 +681,14 @@ def main():
 
     st.markdown("---")
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         "📊 Ranking",
         "📈 Score no Tempo",
         "🎯 Análise Setorial",
         "📉 Visualizações",
         "🔄 Reversão",
-        "📖 Racional"
+        "📖 Racional",
+        "🏭 Composição Setorial"
     ])
 
     # ── TAB 1: RANKING ──────────────────────────────────────
@@ -958,6 +959,127 @@ def main():
     # ── TAB 6: RACIONAL ──────────────────────────────────────
     with tab6:
         render_racional()
+
+    # ── TAB 7: COMPOSIÇÃO SETORIAL ───────────────────────────
+    with tab7:
+        st.subheader("🏭 Composição setorial — ações por setor")
+
+        st.markdown("""
+        Visão completa de todas as ações monitoradas organizadas por setor,
+        com score e principais métricas de cada uma.
+        """)
+
+        if len(df_resultado) == 0:
+            st.warning("Nenhum dado disponível.")
+        else:
+            setores_ordenados = (
+                df_resultado.groupby('Setor')['Score']
+                .mean()
+                .sort_values(ascending=False)
+                .index
+                .tolist()
+            )
+
+            # Filtro de setor no topo da aba
+            setor_escolhido = st.selectbox(
+                "Ir direto para um setor:",
+                options=["— todos —"] + setores_ordenados,
+                key="setor_composicao"
+            )
+
+            setores_exibir = setores_ordenados if setor_escolhido == "— todos —" else [setor_escolhido]
+
+            for setor in setores_exibir:
+                df_setor = df_resultado[df_resultado['Setor'] == setor].sort_values('Score', ascending=False)
+
+                score_medio = df_setor['Score'].mean()
+                n_acoes = len(df_setor)
+
+                # Cor do badge baseada no score médio
+                if score_medio >= 66:
+                    badge_cor = "#90EE90"
+                    badge_txt = "#1a5c1a"
+                elif score_medio >= 33:
+                    badge_cor = "#FFFFE0"
+                    badge_txt = "#7a6e00"
+                else:
+                    badge_cor = "#FFB6C1"
+                    badge_txt = "#8b0000"
+
+                st.markdown(f"""
+                <div style="display:flex; align-items:center; gap:12px; margin: 1.2rem 0 0.4rem 0;">
+                    <span style="font-size:17px; font-weight:600;">{setor}</span>
+                    <span style="background:{badge_cor}; color:{badge_txt}; border-radius:12px;
+                                 padding:2px 10px; font-size:12px; font-weight:600;">
+                        Score médio: {score_medio:.1f}
+                    </span>
+                    <span style="color:#888; font-size:13px;">{n_acoes} ação{'ões' if n_acoes > 1 else ''}</span>
+                </div>
+                """, unsafe_allow_html=True)
+
+                df_setor_display = df_setor[[
+                    'Ticker', 'Score', 'Ret_1M', 'Ret_3M', 'Ret_6M', 'Ret_12M',
+                    'IR_6M', 'Consist_12M', 'Volatilidade'
+                ]].copy()
+
+                def highlight_score_setor(val):
+                    if pd.isna(val): return ''
+                    if val >= 70:   return 'background-color: #90EE90'
+                    if val >= 50:   return 'background-color: #FFFFE0'
+                    return 'background-color: #FFB6C1'
+
+                st.dataframe(
+                    df_setor_display.style.format({
+                        'Score':        '{:.1f}',
+                        'Ret_1M':       '{:.1f}%',
+                        'Ret_3M':       '{:.1f}%',
+                        'Ret_6M':       '{:.1f}%',
+                        'Ret_12M':      '{:.1f}%',
+                        'IR_6M':        '{:.2f}',
+                        'Consist_12M':  '{:.1f}%',
+                        'Volatilidade': '{:.1f}%',
+                    }, na_rep='N/A').map(highlight_score_setor, subset=['Score']),
+                    use_container_width=True,
+                    hide_index=True,
+                    height=min(38 * (len(df_setor) + 1) + 10, 400)
+                )
+
+            st.markdown("---")
+            st.markdown("**📊 Resumo consolidado por setor**")
+
+            resumo_setorial = (
+                df_resultado.groupby('Setor')
+                .agg(
+                    Ações=('Ticker', 'count'),
+                    Score_Médio=('Score', 'mean'),
+                    Score_Máx=('Score', 'max'),
+                    Score_Mín=('Score', 'min'),
+                    Ret_6M_Médio=('Ret_6M', 'mean'),
+                    IR_6M_Médio=('IR_6M', 'mean'),
+                    Vol_Média=('Volatilidade', 'mean'),
+                )
+                .round(2)
+                .sort_values('Score_Médio', ascending=False)
+                .reset_index()
+            )
+
+            resumo_setorial.columns = [
+                'Setor', 'Ações', 'Score médio', 'Score máx',
+                'Score mín', 'Ret 6M médio', 'IR 6M médio', 'Vol média'
+            ]
+
+            st.dataframe(
+                resumo_setorial.style.format({
+                    'Score médio':  '{:.1f}',
+                    'Score máx':    '{:.1f}',
+                    'Score mín':    '{:.1f}',
+                    'Ret 6M médio': '{:.1f}%',
+                    'IR 6M médio':  '{:.2f}',
+                    'Vol média':    '{:.1f}%',
+                }, na_rep='N/A').map(highlight_score_setor, subset=['Score médio']),
+                use_container_width=True,
+                hide_index=True,
+            )
 
     st.markdown("---")
     st.markdown(f"""
